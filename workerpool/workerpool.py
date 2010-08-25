@@ -89,6 +89,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+__all__ = ['Worker','SummoningPool', 'Watchman', 'WorkerPool', 'iterqueue',
+           'pool', 'summoning_pool']
+
+
 from contextlib import contextmanager
 import Queue
 import threading
