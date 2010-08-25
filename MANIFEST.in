@@ -1,2 +1,3 @@
 include CHANGELOG
 include *.txt
+recursive-include tests/ *
