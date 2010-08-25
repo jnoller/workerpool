@@ -108,8 +108,8 @@ class Worker(threading.Thread):
     logic of when to stop/start and handle exceptions in place.
 
     :param run: A threading.Event object indicating that the thread should run.
-    :param stop: A threading.Event object indicating that the thread should stop
-                 execution, and exit.
+    :param stop: A threading.Event object indicating that the thread should
+                stop execution, and exit.
     :param inbox: The main queue for inbound tasks.
     :param outbox: The queue to store results in.
     :param errbox: The queue to store exceptions in if a task results in one.
@@ -167,13 +167,13 @@ class WorkerPool(threading.Thread):
 
     :param wcount: Number of workers to create.
     :param stagger: Optional: In seconds, the amount for each thread to sleep
-                    before starting. This means if you have 10 threads, the 10th
-                    thread will sleep 10 seconds before beginning work.
+                    before starting. This means if you have 10 threads, the
+                    10th thread will sleep 10 seconds before beginning work.
     :param inbox: Optional: a Queue to use for the inbound tasks
     :param outbox: Optional: a Queue to use for the results from the tasks
     :param errbox: Optional: a Queue to use for the errors a given task may get
-    :param workerclass: Optional: A different class than the default :class:`Worker`
-                        to instantiate to do the work.
+    :param workerclass: Optional: A different class than the default
+                        :class:`Worker` to instantiate to do the work.
     """
 
     def __init__(self, wcount, stagger=0,
@@ -320,19 +320,21 @@ class SummoningPool(WorkerPool):
     :param wcount: Number of workers to create.
     :param maxw: Maximum number of threads to create.
     :param rate: How many threads to create if the ratio is met.
-    :param interval: Seconds, how frequently to perform the check on the pool and
-                     work queue. This dictates how quickly we can generate threads.
+    :param interval: Seconds, how frequently to perform the check on the pool
+                     and work queue. This dictates how quickly we can
+                     generate threads.
     :param inbox: Optional: a Queue to use for the inbound tasks
     :param outbox: Optional: a Queue to use for the results from the tasks
     :param errbox: Optional: a Queue to use for the errors a given task may get
-    :param workerclass: Optional: A different class than the default :class:`Worker`
-                        to instantiate to do the work.
+    :param workerclass: Optional: A different class than the default
+                        :class:`Worker` to instantiate to do the work.
     """
 
     def __init__(self, wcount, maxw, rate=1, ratio=10, interval=1,
                  inbox=None, outbox=None, errbox=None, workerclass=Worker):
-        super(SummoningPool, self).__init__(wcount, inbox=inbox, outbox=outbox,
-                                            errbox=errbox, workerclass=workerclass)
+        super(SummoningPool, self).__init__(wcount, inbox=inbox,
+                                            outbox=outbox, errbox=errbox,
+                                            workerclass=workerclass)
         self.watcher = Watchman(wcount, maxw, rate, ratio, interval, self)
         self.watcher.start()
 
