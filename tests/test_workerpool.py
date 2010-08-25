@@ -48,9 +48,10 @@ def _err(*args, **kwargs):
 class TestWorker(unittest.TestCase):
     """ Tests for the worker class specifically
     """
+
     def setUp(self):
         self.inbox = Queue.Queue()
-        self.outbox= Queue.Queue()
+        self.outbox = Queue.Queue()
         self.errbox = Queue.Queue()
         self.run = threading.Event()
         self.stop = threading.Event()
@@ -83,6 +84,7 @@ class TestWorker(unittest.TestCase):
 
 
 class TestMisc(unittest.TestCase):
+
     def test_harvest(self):
         q = Queue.Queue()
         for _ in range(100):
@@ -91,6 +93,7 @@ class TestMisc(unittest.TestCase):
 
 
 class TestWorkerThreadPool(unittest.TestCase):
+
     def setUp(self):
         self.wc = 10
 
