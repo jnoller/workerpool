@@ -8,25 +8,13 @@ be boiled down to a simple example::
         for original in _walk(sdir):
             dest = change_root(tdir, original)
             pool.inbox.put((_copy, [original, dest], {}))
-    print [i for i in worker.iterqueue(pool.outbox)]
+    results = [i for i in worker.iterqueue(pool.outbox)]
+    errors = [i for i in workerpool.iterqueue(pool.errbox)]
+    print results, errors
 
 This uses the :func:`pool` context manager to give you a threadpool of 10
 workers. You then use the inbox (outbox/errbox) of the pool to communicate or
 retrieve values from the workers.
-
-For example::
-
-    with workerpool.pool(10) as pool:
-        for original in _walk(sdir):
-            dest = change_root(tdir, original)
-            pool.inbox.put((_copy, [original, dest], {}))
-
-    results =  [i for i in worker.iterqueue(pool.outbox)]
-    errors = [i for i in worker.iterqueue(pool.errbox)]
-
-Is a modification of the original example which gives you a list of results,
-and a list of errors. All errors are exception objects which have been thrown
-by the function passed into the inbox.
 
 Also included is a self-managing version of the :class:`WorkerPool` called
 :class:`SummoningPool` which will monitor the amount of work versus the number
@@ -39,13 +27,16 @@ In the case of all pools, the inbox is used to communicate work to the children
     (func, [], {})
 
 This maps to the function or method the worker should call, along with the args
-and kwargs. We've forgone the magic of having an add_work method which would
-intelligently detect what was being passed into the inbox in favor of something
-more explicit.
+and kwargs. Any value returned from the work func is put in the outbox. Any 
+exceptions raised are put in the errbox. These boxes can be accessed within the
+pool context, but they are only guaranteed to contain all completed work after
+exiting the pool context or if you call exile() on your own.
 
-If you wanted the magic of something which didn't need this, you can implement
-your own :class:`Worker` class which performs the calling/execution of the
-work within the inbox differently::
+We've forgone the magic of having an add_work method which would intelligently
+detect what was being passed into the inbox in favor of something more 
+explicit.  If you wanted the magic of something which didn't need the explicit
+inbox tuple, you can implement your own :class:`Worker` class which performs
+the calling/execution of the work within the inbox differently::
 
     class MyWorker(threading.Thread)
     ...
@@ -53,10 +44,10 @@ work within the inbox differently::
 
         self._run.wait()
         time.sleep(self.stagger)
-        while not self._stop.is_set():
-            if self._banished.is_set():
+        while not self._stop.isSet():
+            if self._banished.isSet():
                 return
-            if not self._run.is_set():
+            if not self._run.isSet():
                 self._run.wait()
             try:
                 # Change this code right here:
@@ -88,6 +79,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+from __future__ import with_statement
+
 
 __all__ = ['Worker','SummoningPool', 'Watchman', 'WorkerPool', 'iterqueue',
            'pool', 'summoning_pool']
@@ -97,6 +90,9 @@ from contextlib import contextmanager
 import Queue
 import threading
 import time
+
+
+_SENTINEL = object()
 
 
 class Worker(threading.Thread):
@@ -143,10 +139,10 @@ class Worker(threading.Thread):
         """
         self._run.wait()
         time.sleep(self.stagger)
-        while not self._stop.is_set():
-            if self._banished.is_set():
+        while not self._stop.isSet():
+            if self._banished.isSet():
                 return
-            if not self._run.is_set():
+            if not self._run.isSet():
                 self._run.wait()
             try:
                 # use a blocking get w/ timeout to reduce contention
@@ -194,6 +190,10 @@ class WorkerPool(threading.Thread):
         self.pool = []
         self.summon(wcount, stagger=stagger)
         self.start()
+
+    def __getattr__(self, name): #py2.5 compat
+        if name == 'name':
+            return self.getName()
 
     def poolsize(self):
         """ Return the size of the current pool.
@@ -297,7 +297,7 @@ class Watchman(threading.Thread):
     def run(self):
         """ Primary watchman run method - never called directly
         """
-        while not self.stop.is_set():
+        while not self.stop.isSet():
             size = self.pool.inbox.qsize()
             psize = self.pool.poolsize()
             if size and psize:
@@ -389,5 +389,5 @@ def iterqueue(queue):
 
     :param queue: The queue to iterate.
     """
-    queue.put(None)
-    return (i for i in iter(queue.get, None))
+    queue.put(_SENTINEL)
+    return (i for i in iter(queue.get, _SENTINEL))

@@ -1,2 +1,4 @@
 2010-8-25    Jesse Noller    <jnoller@gmail.com>
-     - Initial public commit with full licensing, tests.
+	- Initial public commit with full licensing, tests.
+	- Add changes for Python 2.5 compatibility and example cleanup from
+	  Jeremy Dunck <jdunck@gmail.com>

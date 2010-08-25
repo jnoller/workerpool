@@ -127,6 +127,8 @@ class TestWorkerThreadPool(unittest.TestCase):
         self.assertEqual(x.poolsize(), self.wc * 2)
         x.banish(self.wc)
         self.assertEqual(x.poolsize(), self.wc)
+        x.banish(self.wc)
+        self.assertEqual(x.poolsize(), 0)
 
     def test_pause(self):
         """ Test the pause functionality - this is actually a PITA because of
@@ -153,11 +155,10 @@ class TestWorkerThreadPool(unittest.TestCase):
         com = workerpool.WorkerPool(self.wc, inbox=prod.outbox)
         for i in range(self.wc):
             prod.inbox.put((_tfunc_return, [1], {}))
+        prod.exile()
         com.exile()
-        com.outbox.put(None)
         results = [i for i in workerpool.iterqueue(com.outbox)]
         self.assertEqual(len(results), self.wc)
-        prod.exile()    # Shutdown the producers
 
     def test_circle(self):
         """ As a lark - tie a prod->com->prod circle, this means we can ring
@@ -172,8 +173,6 @@ class TestWorkerThreadPool(unittest.TestCase):
             inbox.put((_recursive_return, [1], {}))
         com.exile()
         prod.exile()
-        inbox.put(None)
-        outbox.put(None)
         results = []
         results.extend([i for i in workerpool.iterqueue(outbox)])
         results.extend([i for i in workerpool.iterqueue(inbox)])
@@ -185,7 +184,6 @@ class TestWorkerThreadPool(unittest.TestCase):
         with workerpool.pool(self.wc) as pool:
             for i in range(self.wc):
                 pool.inbox.put((_tfunc, [1], {}))
-        pool.outbox.put(None)
         results = [i for i in workerpool.iterqueue(pool.outbox)]
         self.assertEqual(len(results), self.wc)
 
