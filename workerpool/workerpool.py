@@ -391,3 +391,22 @@ def iterqueue(queue):
     """
     queue.put(_SENTINEL)
     return (i for i in iter(queue.get, _SENTINEL))
+
+
+class DummyQueue(Queue.Queue):
+    """ A Queue that discards all items put on it and optionally calls
+    a callback function (typically a logging function) with the item as
+    the only argument.
+    """
+
+    def __init__(self, callback=None):
+        """ Setup the parent and set a callback method if supplied """
+        Queue.Queue.__init__(self)
+        self.callback = callback
+
+    def put(self, item, block=False, timeout=False):
+        """ Do nothing, or if a callback is set, call it with the item
+        as the only argument.
+        """
+        if self.callback:
+            self.callback(item)
