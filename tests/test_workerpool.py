@@ -212,6 +212,21 @@ class TestWorkerThreadPool(unittest.TestCase):
         results = [i for i in workerpool.iterqueue(pool.outbox)]
         self.assertEqual(len(results), self.wc)
 
+    def test_pool_ctx_error(self):
+        """ Test the pool contextmanager when an error is raised
+        """
+        try:
+            with workerpool.pool(self.wc) as pool:
+                for i in range(self.wc):
+                    pool.inbox.put((_tfunc, [1], {}))
+                raise ValueError('foobar')
+            err = None
+        except Exception, e:
+            err = e
+        self.assertEqual(str(err), 'foobar')
+        results = [i for i in workerpool.iterqueue(pool.outbox)]
+        self.assertEqual(len(results), self.wc)
+
     def test_pool_with_worker_data(self):
         """ Test using a pool when setting worker local data.
         """

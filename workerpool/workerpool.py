@@ -409,8 +409,10 @@ def pool(*args, **kwargs):
     **kwargs are passed to the :class:`WorkerPool`.
     """
     pool = WorkerPool(*args, **kwargs)
-    yield pool
-    pool.exile()
+    try:
+        yield pool
+    finally:
+        pool.exile()
 
 
 @contextmanager
@@ -420,8 +422,10 @@ def summoning_pool(*args, **kwargs):
     **kwargs are passed to the :class:`SummoningPool`.
     """
     pool = SummoningPool(*args, **kwargs)
-    yield pool
-    pool.exile()
+    try:
+        yield pool
+    finally:
+        pool.exile()
 
 
 def iterqueue(queue):
