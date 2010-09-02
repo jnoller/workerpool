@@ -82,6 +82,31 @@ class TestWorker(unittest.TestCase):
         x.banish()
         x.join()
 
+    def test_worker_local_data(self):
+        stuff = []
+        def setup(worker):
+            d = {'called': 0}
+            stuff.append(d)
+            return d
+        def do_work(v, worker_data):
+            worker_data['called'] += 1
+            return v
+        x = workerpool.Worker(self.run, self.stop, self.inbox,
+                              self.outbox, self.errbox,
+                              name='worker_with_data', worker_setup=setup)
+        x.start()
+        self.run.set()
+        self.inbox.put((do_work, [1], {}))
+        self.inbox.put((do_work, [2], {}))
+        self.inbox.join()
+        self.assertEqual(self.errbox.qsize(), 0)
+        self.assertEqual(self.outbox.qsize(), 2)
+        self.assertEqual(len(stuff), 1)
+        self.assertEqual(stuff.pop()['called'], 2)
+        x.banish()
+        x.join()
+
+
 
 class TestMisc(unittest.TestCase):
 
@@ -186,6 +211,26 @@ class TestWorkerThreadPool(unittest.TestCase):
                 pool.inbox.put((_tfunc, [1], {}))
         results = [i for i in workerpool.iterqueue(pool.outbox)]
         self.assertEqual(len(results), self.wc)
+
+    def test_pool_with_worker_data(self):
+        """ Test using a pool when setting worker local data.
+        """
+        stuff = []
+        def setup(worker):
+            d = {'called': 0}
+            stuff.append(d)
+            return d
+        def do_work(v, worker_data):
+            worker_data['called'] += 1
+            return v
+        with workerpool.pool(self.wc, worker_setup=setup) as pool:
+            for idx in range(self.wc):
+                pool.inbox.put((do_work, [idx], {}))
+            pool.inbox.join()
+        results = [i for i in workerpool.iterqueue(pool.outbox)]
+        self.assertEqual(len(results), self.wc)
+        self.assertEqual(len(stuff), self.wc)
+        self.assertEqual(pool.errbox.qsize(), 0)
 
 
 class TestSummoningPool(unittest.TestCase):

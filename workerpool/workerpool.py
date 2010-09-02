@@ -32,6 +32,13 @@ exceptions raised are put in the errbox. These boxes can be accessed within the
 pool context, but they are only guaranteed to contain all completed work after
 exiting the pool context or if you call exile() on your own.
 
+Occasionally, there is a need to have a data structure per-thread. For simple
+situations where subclassing :class:``Worker`` is too much work, the
+WorkerPool constructors accept a ``worker_setup`` callback argument. When
+a worker begins running it will call the callback with itself as the single
+argument. The object that is returned from this call is kept locally and
+passed to the work func as an extra keyword argument.
+
 We've forgone the magic of having an add_work method which would intelligently
 detect what was being passed into the inbox in favor of something more 
 explicit.  If you wanted the magic of something which didn't need the explicit
@@ -113,11 +120,15 @@ class Worker(threading.Thread):
     :param inbox: The main queue for inbound tasks.
     :param outbox: The queue to store results in.
     :param errbox: The queue to store exceptions in if a task results in one.
+    :param worker_setup: Optional - a callback function that returns a worker
+                         local object. The callback should accept a single
+                         argument for the worker object
     :param name: Optional - the identified to append onto Worker-{name}
     :param stagger: Optional - how long to sleep before beginning work.
     """
 
-    def __init__(self, run, stop, inbox, outbox, errbox, name=None, stagger=0):
+    def __init__(self, run, stop, inbox, outbox, errbox, worker_setup=None,
+                 name=None, stagger=0):
         super(Worker, self).__init__()
         self._run = run
         self._stop = stop
@@ -125,9 +136,10 @@ class Worker(threading.Thread):
         self.outbox = outbox
         self.errbox = errbox
         self.stagger = stagger
+        self.worker_setup = worker_setup
         self._banished = threading.Event()
 
-        self.setName("Worker-%s" % name or 'x')
+        self.setName("Worker-%s" % (name or 'x'))
 
     def banish(self):
         """ Banish this worker to icy nothingness.
@@ -139,6 +151,10 @@ class Worker(threading.Thread):
         """
         self._run.wait()
         time.sleep(self.stagger)
+        if self.worker_setup:
+            worker_data = self.worker_setup(self)
+        else:
+            worker_data = None
         while not self._stop.isSet():
             if self._banished.isSet():
                 return
@@ -150,7 +166,7 @@ class Worker(threading.Thread):
                 # of readers. This drags shutdown time out, but is better
                 thingie, args, kwargs = self.inbox.get(block=True, timeout=1)
                 try:
-                    result = thingie(*args, **kwargs)
+                    result = self.call_func(thingie, args, kwargs, worker_data)
                     self.outbox.put(result)
                 except Exception, e:
                     self.errbox.put(e)
@@ -159,6 +175,24 @@ class Worker(threading.Thread):
 
             except Queue.Empty:
                 pass
+
+    def call_func(self, func, args, kwargs, worker_data=None):
+        """ Execute the callable object passed in as ``func`` with
+        the given positional and keyword args. If worker_data has been
+        created it is also passed in as a keyword argument.
+
+        :param func: A callable object
+        :param args: A list of arguments to be passed to func
+        :param kwargs: A dict of keyword arguments to be passed to func
+        :param worker_data: An object passed to func as an additional
+                            keyword if defined
+        """
+        if worker_data is not None:
+            # do not mangle the orignal kwargs, because there is the
+            # possibility the user plans on using it again
+            kwargs = dict(kwargs)
+            kwargs['worker_data'] = worker_data
+        return func(*args, **kwargs)
 
 
 class WorkerPool(threading.Thread):
@@ -174,16 +208,20 @@ class WorkerPool(threading.Thread):
     :param errbox: Optional: a Queue to use for the errors a given task may get
     :param workerclass: Optional: A different class than the default
                         :class:`Worker` to instantiate to do the work.
+    :param worker_setup: Optional: A callback function that accepts one arg,
+                         see worker_setup on :class:`Worker` for details.
     """
 
     def __init__(self, wcount, stagger=0,
-                 inbox=None, outbox=None, errbox=None, workerclass=Worker):
+                 inbox=None, outbox=None, errbox=None,
+                 workerclass=Worker, worker_setup=None):
         super(WorkerPool, self).__init__()
 
         self.inbox = inbox or Queue.Queue()
         self.outbox = outbox or Queue.Queue()
         self.errbox = errbox or Queue.Queue()
         self.workerclass = workerclass
+        self.worker_setup = worker_setup
         self._run = threading.Event()
         self._stop = threading.Event()
         self.setName("WorkerPool-%s" % wcount)
@@ -216,6 +254,7 @@ class WorkerPool(threading.Thread):
             cstagger += stagger
             wk = self.workerclass(self._run, self._stop, self.inbox,
                                   self.outbox, self.errbox, name=cn,
+                                  worker_setup=self.worker_setup,
                                   stagger=cstagger)
             wk.start()
             self.pool.append(wk)
@@ -332,13 +371,17 @@ class SummoningPool(WorkerPool):
     :param errbox: Optional: a Queue to use for the errors a given task may get
     :param workerclass: Optional: A different class than the default
                         :class:`Worker` to instantiate to do the work.
+    :param worker_setup: Optional: A callback function that accepts one arg,
+                         see worker_setup on :class:`Worker` for details.
     """
 
     def __init__(self, wcount, maxw, rate=1, ratio=10, interval=1,
-                 inbox=None, outbox=None, errbox=None, workerclass=Worker):
+                 inbox=None, outbox=None, errbox=None,
+                 workerclass=Worker, worker_setup=None):
         super(SummoningPool, self).__init__(wcount, inbox=inbox,
                                             outbox=outbox, errbox=errbox,
-                                            workerclass=workerclass)
+                                            workerclass=workerclass,
+                                            worker_setup=worker_setup)
         self.watcher = Watchman(wcount, maxw, rate, ratio, interval, self)
         self.watcher.start()
 
