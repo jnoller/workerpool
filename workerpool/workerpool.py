@@ -206,6 +206,7 @@ class WorkerPool(threading.Thread):
     :param inbox: Optional: a Queue to use for the inbound tasks
     :param outbox: Optional: a Queue to use for the results from the tasks
     :param errbox: Optional: a Queue to use for the errors a given task may get
+    :param suffix: Optional: a string to append to the worker thread's name
     :param workerclass: Optional: A different class than the default
                         :class:`Worker` to instantiate to do the work.
     :param worker_setup: Optional: A callback function that accepts one arg,
@@ -213,13 +214,14 @@ class WorkerPool(threading.Thread):
     """
 
     def __init__(self, wcount, stagger=0,
-                 inbox=None, outbox=None, errbox=None,
+                 inbox=None, outbox=None, errbox=None, suffix=None,
                  workerclass=Worker, worker_setup=None):
         super(WorkerPool, self).__init__()
 
         self.inbox = inbox or Queue.Queue()
         self.outbox = outbox or Queue.Queue()
         self.errbox = errbox or Queue.Queue()
+        self.suffix = suffix
         self.workerclass = workerclass
         self.worker_setup = worker_setup
         self._run = threading.Event()
@@ -252,6 +254,8 @@ class WorkerPool(threading.Thread):
         cstagger = 0
         for cn in range(count):
             cstagger += stagger
+            if self.suffix:
+                cn = '%s-%s' % (cn, self.suffix)
             wk = self.workerclass(self._run, self._stop, self.inbox,
                                   self.outbox, self.errbox, name=cn,
                                   worker_setup=self.worker_setup,
@@ -369,6 +373,7 @@ class SummoningPool(WorkerPool):
     :param inbox: Optional: a Queue to use for the inbound tasks
     :param outbox: Optional: a Queue to use for the results from the tasks
     :param errbox: Optional: a Queue to use for the errors a given task may get
+    :param suffix: Optional: a string to append to the worker thread's name
     :param workerclass: Optional: A different class than the default
                         :class:`Worker` to instantiate to do the work.
     :param worker_setup: Optional: A callback function that accepts one arg,
@@ -376,10 +381,11 @@ class SummoningPool(WorkerPool):
     """
 
     def __init__(self, wcount, maxw, rate=1, ratio=10, interval=1,
-                 inbox=None, outbox=None, errbox=None,
+                 inbox=None, outbox=None, errbox=None, suffix=None,
                  workerclass=Worker, worker_setup=None):
         super(SummoningPool, self).__init__(wcount, inbox=inbox,
                                             outbox=outbox, errbox=errbox,
+                                            suffix=suffix,
                                             workerclass=workerclass,
                                             worker_setup=worker_setup)
         self.watcher = Watchman(wcount, maxw, rate, ratio, interval, self)

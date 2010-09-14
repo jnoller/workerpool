@@ -247,6 +247,19 @@ class TestWorkerThreadPool(unittest.TestCase):
         self.assertEqual(len(stuff), self.wc)
         self.assertEqual(pool.errbox.qsize(), 0)
 
+    def test_name_suffix(self):
+        names = []
+        def do_something():
+            myname = threading.currentThread().getName()
+            names.append(myname)
+        with workerpool.pool(self.wc, suffix='foobly') as pool:
+            for _ in range(self.wc):
+                pool.inbox.put((do_something, [], {}))
+            pool.inbox.join()
+        for n in names:
+            self.assertTrue(n.endswith('-foobly'))
+        self.assertEqual(self.wc, len(names))
+
 
 class TestSummoningPool(unittest.TestCase):
 
