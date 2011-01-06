@@ -1,7 +1,7 @@
 %define shortname WorkerPool
 %define shortver 0.1
 %define shortrel 1
-%define hgver
+%define hgver %nil
 
 Name:		python-workerpool
 Version:	%{shortver}
