@@ -1,13 +1,13 @@
-.. workerpool documentation master file, created by
+.. workers documentation master file, created by
    sphinx-quickstart on Sun Sep 19 12:37:03 2010.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Workerpool: Making Work Light
+Workers: Making Work Light
 ======================================
 
-Workerpool is a threaded job pool interface that intends to make
-farming out work to multiple threads easy. Workerpool reduces
+Workers is a threaded job pool interface that intends to make
+farming out work to multiple threads easy. Workers reduces
 the amount of boilerplate code needed to launch worker threads
 and makes dispatching work straightforward.
 
@@ -15,7 +15,7 @@ and makes dispatching work straightforward.
 Quick Start
 ===========
 
-Running workerpool in the most basic way is as simple as:
+Running workers in the most basic way is as simple as:
 a) creating a pool, b) queuing work, c) reading results.
 You send work to the pool by putting a tuple containing a callable,
 its positional arguments and keyword arguments on the inbox queue.
@@ -27,7 +27,7 @@ its positional arguments and keyword arguments on the inbox queue.
        return path, bytes_fetched
 
    tofetch = [('http://example.org/index.html', 'ex.html')]
-   with workerpool.pool(8) as pool:
+   with workers.pool(8) as pool:
        for uri, path in tofetch:
            pool.inbox.put((download_file, [uri, path], {}))
    for path, bytes in workerptool.iterqueue(pool.outbox):
@@ -45,12 +45,12 @@ default to Queue.Queue objects.
    def multi_download(user_input):
        outbox = Queue.Queue()
        errbox = Queue.Queue()
-       with workerpool.pool(8, outbox=outbox, errbox=errbox) as pool:
+       with workers.pool(8, outbox=outbox, errbox=errbox) as pool:
            for uri, path in user_input:
                pool.inbox.put((download_file, [uri, path], {}))
-       for err in workerpool.iterqueue(errbox):
+       for err in workers.iterqueue(errbox):
            raise err
-       for path, bytes in workerpool.iterqueue(outbox):
+       for path, bytes in workers.iterqueue(outbox):
            print 'file %s: %s bytes downloaded' % (path, bytes)
 
 If you are familiar with threading in Python you might wonder what
@@ -59,7 +59,7 @@ is happening under the covers. We can write this code in another way:
 .. code-block:: python
 
    def multi_download(user_input):
-       pool = workerpool.WorkerPool(8)
+       pool = workers.WorkerPool(8)
        try:
            for uri, path in user_input:
                pool.inbox.put((download_file, [uri, path], {}))
@@ -74,11 +74,11 @@ shut down, but waits until all items have been taken off the
 inbox (you can control this with an argument).
 
 These are the basics, but there are more advanced ways to use
-the workerpool module. Please take a look at the module documentation
+the workers module. Please take a look at the module documentation
 and explore the library.
 
 
-Workerpool Details
+Workers: Details
 ====================
 
 .. toctree::

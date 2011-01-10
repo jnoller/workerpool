@@ -3,5 +3,5 @@
 Workerpool Module Documenation
 =================================
 
-.. automodule:: workerpool.workerpool
+.. automodule:: workers.workerpool
    :members:

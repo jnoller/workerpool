@@ -1,4 +1,4 @@
 include CHANGELOG
 include *.txt
 recursive-include tests/ *
-include misc/python-workerpool.spec
+include misc/python-workers.spec
