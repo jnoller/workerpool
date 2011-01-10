@@ -1,12 +1,12 @@
-%define shortname WorkerPool
+%define shortname workers
 %define shortver 0.1
 %define shortrel 1
 %define hgver %nil
 
-Name:		python-workerpool
+Name:		python-%{shortname}
 Version:	%{shortver}
 Release:	%{shortrel}%{?hgver}%{?dist}
-Summary:	Workerpool for threads
+Summary:	workers is a work pool for threads
 BuildArch: noarch
 
 Group:		Development/Libraries
