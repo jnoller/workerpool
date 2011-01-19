@@ -90,7 +90,7 @@ from __future__ import with_statement
 
 
 __all__ = ['Worker','SummoningPool', 'Watchman', 'WorkerPool', 'iterqueue',
-           'pool', 'summoning_pool']
+           'pool', 'summoning_pool', 'DummyQueue']
 
 
 from contextlib import contextmanager
