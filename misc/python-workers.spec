@@ -1,6 +1,6 @@
 %define shortname workers
 %define shortver 0.1
-%define shortrel 1
+%define shortrel 4
 %define hgver %nil
 
 Name:		python-%{shortname}
