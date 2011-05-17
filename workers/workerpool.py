@@ -90,16 +90,18 @@ from __future__ import with_statement
 
 
 __all__ = ['Worker','SummoningPool', 'Watchman', 'WorkerPool', 'iterqueue',
-           'pool', 'summoning_pool', 'DummyQueue']
+           'pool', 'summoning_pool', 'DummyQueue', 'ProcessWorker']
 
 
 from contextlib import contextmanager
 import Queue
 import threading
+import multiprocessing
 import time
 
 
 _SENTINEL = object()
+_SENTINEL = 'POOP'
 
 
 class Worker(threading.Thread):
@@ -195,6 +197,76 @@ class Worker(threading.Thread):
         return func(*args, **kwargs)
 
 
+class ProcessWorker(multiprocessing.Process):
+    def __init__(self, run, stop, inbox, outbox, errbox, worker_setup=None,
+                 name=None, stagger=0):
+        super(ProcessWorker, self).__init__()
+        self._run = run
+        self._stop = stop
+        self.inbox = inbox
+        self.outbox = outbox
+        self.errbox = errbox
+        self.stagger = stagger
+        self.worker_setup = worker_setup
+        self._banished = threading.Event()
+
+        self.name = "Worker-%s" % (name or 'x')
+
+    def banish(self):
+        """ Banish this worker to icy nothingness.
+        """
+        self._banished.set()
+
+    def run(self):
+        """ Loop on the inbox until we're told not to.
+        """
+        self._run.wait()
+        time.sleep(self.stagger)
+        if self.worker_setup:
+            worker_data = self.worker_setup(self)
+        else:
+            worker_data = None
+        while not self._stop.is_set():
+            if self._banished.is_set():
+                return
+            if not self._run.is_set():
+                self._run.wait()
+            try:
+                # use a blocking get w/ timeout to reduce contention
+                # on the queue if a writer is trying to compete with lots
+                # of readers. This drags shutdown time out, but is better
+                thingie, args, kwargs = self.inbox.get(block=True, timeout=1)
+                try:
+                    result = self.call_func(thingie, args, kwargs, worker_data)
+                    print 'done'
+                    self.outbox.put(result)
+                except Exception, e:
+                    self.errbox.put(e)
+                finally:
+                    self.inbox.task_done()
+
+            except Queue.Empty:
+                pass
+
+    def call_func(self, func, args, kwargs, worker_data=None):
+        """ Execute the callable object passed in as ``func`` with
+        the given positional and keyword args. If worker_data has been
+        created it is also passed in as a keyword argument.
+
+        :param func: A callable object
+        :param args: A list of arguments to be passed to func
+        :param kwargs: A dict of keyword arguments to be passed to func
+        :param worker_data: An object passed to func as an additional
+                            keyword if defined
+        """
+        if worker_data is not None:
+            # do not mangle the orignal kwargs, because there is the
+            # possibility the user plans on using it again
+            kwargs = dict(kwargs)
+            kwargs['worker_data'] = worker_data
+        return func(*args, **kwargs)
+
+
 class WorkerPool(threading.Thread):
     """
     Main pool management/creation class.
@@ -215,17 +287,19 @@ class WorkerPool(threading.Thread):
 
     def __init__(self, wcount, stagger=0,
                  inbox=None, outbox=None, errbox=None, suffix=None,
-                 workerclass=Worker, worker_setup=None):
+                 workerclass=Worker, queueclass=Queue.Queue,
+                 eventclass=threading.Event,
+                 worker_setup=None):
         super(WorkerPool, self).__init__()
 
-        self.inbox = inbox or Queue.Queue()
-        self.outbox = outbox or Queue.Queue()
-        self.errbox = errbox or Queue.Queue()
+        self.inbox = inbox or queueclass()
+        self.outbox = outbox or queueclass()
+        self.errbox = errbox or queueclass()
         self.suffix = suffix
         self.workerclass = workerclass
         self.worker_setup = worker_setup
-        self._run = threading.Event()
-        self._stop = threading.Event()
+        self._run = eventclass()
+        self._stop = eventclass()
         self.setName("WorkerPool-%s" % wcount)
         self.pool = []
         self.summon(wcount, stagger=stagger)
